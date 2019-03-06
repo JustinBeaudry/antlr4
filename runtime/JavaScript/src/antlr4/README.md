@@ -1,13 +1,15 @@
-# JavaScript target for ANTLR 4
+# JavaScript target for [ANTLR 4][antlr]
 
-JavaScript runtime libraries for ANTLR 4
+## Installation
+```bash
+npm i -S antlr4
+```
 
-This runtime is available through npm. The package name is 'antlr4'.
-
+## Tests
 This runtime has been tested in Node.js, Safari, Firefox, Chrome and IE.
 
-See www.antlr.org for more information on ANTLR
+[For more information on ANTLR][antlr]
+[For more information on using ANTLR in JavaScript][jsdocs]
 
-See https://github.com/antlr/antlr4/blob/master/doc/javascript-target.md for more information on using ANTLR in JavaScript
-
-
+[antlr]: www.antlr.org
+[jsdocs]: https://github.com/antlr/antlr4/blob/master/doc/javascript-target.md
