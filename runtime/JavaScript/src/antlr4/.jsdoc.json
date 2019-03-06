@@ -1,0 +1,21 @@
+{
+	"plugins": [
+		"plugins/markdown"
+	],
+	"source": {
+		"include": [
+			"src/**/*.js"
+		],
+		"exclude": [
+			"node_modules/",
+		]
+	},
+	"templates": {
+		"referenceTitle": "Antlr4 Javascript"
+	},
+	"opts": {
+		"template": "node_modules/minami",
+		"destination": "docs",
+		"readme": "README.md"
+	}
+}

@@ -1,25 +1,21 @@
-//
-/* Copyright (c) 2012-2017 The ANTLR Project. All rights reserved.
+/**
+ * @copyright
+ * Copyright (c) 2012-2017 The ANTLR Project. All rights reserved.
  * Use of this file is governed by the BSD 3-clause license that
  * can be found in the LICENSE.txt file in the project root.
+ **/
+
+import {Token} from './Token';
+import Lexer from './Lexer';
+import {Interval} from './IntervalSet';
+
+/**
+ *
+ * @description
+ * This class is just keep meaningful parameter type to Parser
+ *
+ * @private
  */
-
-// This implementation of {@link TokenStream} loads tokens from a
-// {@link TokenSource} on-demand, and places the tokens in a buffer to provide
-// access to any previous token by index.
-//
-// <p>
-// This token stream ignores the value of {@link Token//getChannel}. If your
-// parser requires the token stream filter tokens to only those on a particular
-// channel, such as {@link Token//DEFAULT_CHANNEL} or
-// {@link Token//HIDDEN_CHANNEL}, use a filtering token stream such a
-// {@link CommonTokenStream}.</p>
-
-const Token = require('./Token').Token;
-const Lexer = require('./Lexer');
-const Interval = require('./IntervalSet').Interval;
-
-// this is just to keep meaningful parameter types to Parser
 class TokenStream {
 	constructor() {
 		return this;
@@ -28,52 +24,61 @@ class TokenStream {
 
 /**
  *
- * @class BufferedTokenStream
- * @extends TokenStream
- * @property {string[]} [tokens=[]]
- * @property {number} [index=-1]
- * @property {boolean} [fetchedEOF=false]
+ * @description
+ * This implementation of {@link TokenStream} loads tokens from a {@link TokenSource}
+ * on-demand and places the tokens in a bugger to provide access to any previous
+ * token by index.
+ *
+ * <p>
+ *   This token stream ignore the value of {@link Token//getChannel}. If your
+ *   parser requires the token stream, filter tokens to only those on a
+ *   particular channel, such as {@link Token//DEFAULT_CHANNEL} or
+ *   {@link Token//HIDDEN_CHANNEL}, use a filtering token stream such as
+ *   {@link CommonTokenStream}.
+ * </p>
+ *
+ * @property {string[]} [tokens=[]] - A collection of all tokens fetched
+ * from the token source. The list is considered a complete view of the
+ * input once {@link BufferedTokenStream#fetchedEOF} is set to {@code true}.
+ *
+ * @property {number} [index=-1] - The index into {@link //tokens} of the
+ * current token (next token to {@link //consume}). {@link //tokens}{@code
+ * [}{@link //p}{@code ]} should be @link //#LT LT(1)}. <p>This field is set
+ * to -1 when the stream is first constructed or when {@link //setTokenSource}
+ * is called, indicating that the first token has not yet
+ * been fetched from the token source. For additional information, see the
+ * documentation of {@link IntStream} for a description of Initializing
+ * Methods.</p>
+ *
+ * @property {boolean} [fetchedEOF=false] - Indicates whether the
+ * {@link Token//EOF} token has been fetched from {@link //tokenSource} and
+ * added to {@link //tokens}. This field improves performance for the
+ * following cases:
+ * <ul>
+ *   <li>{@link //consume}: The lookahead check in {@link //consume} to
+ *        prevent consuming the EOF symbol is optimized by checking the values of
+ *        {@link //fetchedEOF} and {@link //p} instead of calling
+ *        {@link//LA}.
+ *   </li>
+ *   <li>{@link //fetch}: The check to prevent adding multiple EOF symbols
+ *        into {@link //tokens} is trivial with this field.
+ *   </li>
+ * <ul>
  */
 class BufferedTokenStream extends TokenStream {
 	/**
 	 *
-	 * @param {@link TokenSource} tokenSource
+	 * @param {@link Lexer} tokenSource - The {@link TokenSource} from which
+	 * tokens for this stream are fetched.
 	 * @returns {BufferedTokenStream}
 	 */
 	constructor(tokenSource) {
 		super();
-		// The {@link TokenSource} from which tokens for this stream are fetched.
 		this.tokenSource = tokenSource;
-		// A collection of all tokens fetched from the token source. The list is
-		// considered a complete view of the input once {@link //fetchedEOF} is set
-		// to {@code true}.
 		this.tokens = [];
-		// The index into {@link //tokens} of the current token (next token to
-		// {@link //consume}). {@link //tokens}{@code [}{@link //p}{@code ]} should
-		// be
-		// {@link //LT LT(1)}.
-		//
-		// <p>This field is set to -1 when the stream is first constructed or when
-		// {@link //setTokenSource} is called, indicating that the first token has
-		// not yet been fetched from the token source. For additional information,
-		// see the documentation of {@link IntStream} for a description of
-		// Initializing Methods.</p>
 		this.index = -1;
-		// Indicates whether the {@link Token//EOF} token has been fetched from
-		// {@link //tokenSource} and added to {@link //tokens}. This field improves
-		// performance for the following cases:
-		//
-		// <ul>
-		// <li>{@link //consume}: The lookahead check in {@link //consume} to
-		// prevent
-		// consuming the EOF symbol is optimized by checking the values of
-		// {@link //fetchedEOF} and {@link //p} instead of calling {@link
-		// //LA}.</li>
-		// <li>{@link //fetch}: The check to prevent adding multiple EOF symbols
-		// into
-		// {@link //tokens} is trivial with this field.</li>
-		// <ul>
 		this.fetchedEOF = false;
+		this[Symbol.toStringTag] = 'BufferedTokenStream';
 		return this;
 	}
 	/**
@@ -267,7 +272,7 @@ class BufferedTokenStream extends TokenStream {
 	 * are no tokens on channel between {@code index} and {@code EOF}.
 	 *
 	 * @param {number} index
-	 * @param channel
+	 * @param {string} channel
 	 * @returns {number}
 	 */
 	nextTokenOnChannel(index, channel) {
@@ -293,7 +298,7 @@ class BufferedTokenStream extends TokenStream {
 	 * are no tokens on {@code channel} between {@code index} and {@code 0};
 	 *
 	 * @param {number} index
-	 * @param channel
+	 * @param {string} channel
 	 * @returns {*}
 	 */
 	previousTokenOnChannel(index, channel) {
@@ -305,7 +310,7 @@ class BufferedTokenStream extends TokenStream {
 	/**
 	 *
 	 * @param {number} tokenIndex
-	 * @param channel
+	 * @param {string} channel
 	 * @returns {Array}
 	 */
 	getHiddenTokensToRigh(tokenIndex, channel) {
@@ -331,7 +336,7 @@ class BufferedTokenStream extends TokenStream {
 	 * non-default token.
 	 *
 	 * @param {index} tokenIndex
-	 * @param channel
+	 * @param {string} channel
 	 * @returns {null|Array}
 	 */
 	getHiddenTokensToLeft(tokenIndex, channel) {

@@ -1,0 +1,15 @@
+# auto detect line endings
+* text=auto
+
+# code with type metadata
+*.js text diff=javascript
+*.md text diff=markdown
+*.json text diff=json
+
+# files without extensions
+.editorconfig text
+.gitattributes text
+
+# don't diff these files
+*.js text -diff
+package-lock.json -diff
