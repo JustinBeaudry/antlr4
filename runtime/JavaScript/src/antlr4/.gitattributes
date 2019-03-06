@@ -10,6 +10,4 @@
 .editorconfig text
 .gitattributes text
 
-# don't diff these files
-*.js text -diff
 package-lock.json -diff
