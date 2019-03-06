@@ -5,7 +5,7 @@
  */
 //
 
-var Token = require('./Token').Token;
+var Token = require('./tokens/Token').Token;
 var ConsoleErrorListener = require('./error/ErrorListener').ConsoleErrorListener;
 var ProxyErrorListener = require('./error/ErrorListener').ProxyErrorListener;
 

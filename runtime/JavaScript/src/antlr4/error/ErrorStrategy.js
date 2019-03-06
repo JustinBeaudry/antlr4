@@ -5,7 +5,7 @@
  */
 //
 
-var Token = require('./../Token').Token;
+var Token = require('../tokens/Token').Token;
 var Errors = require('./Errors');
 var NoViableAltException = Errors.NoViableAltException;
 var InputMismatchException = Errors.InputMismatchException;

@@ -1,371 +1,372 @@
-/* Copyright (c) 2012-2017 The ANTLR Project. All rights reserved.
+/**
+ * @copyright
+ * Copyright (c) 2012-2017 The ANTLR Project. All rights reserved.
  * Use of this file is governed by the BSD 3-clause license that
  * can be found in the LICENSE.txt file in the project root.
+ * @license BSD-3-Clause
  */
-///
+import {Token} from './tokens/Token';
+import {EOF} from './tokens/constants';
+import CommonTokenFactory from './tokens/CommonTokenFactory';
+import {Recognizer} from './Recognizer';
+import {RecognitionException, LexerNoViableAltException} from './error/Errors';
 
-// A lexer is recognizer that draws input symbols from a character stream.
-//  lexer grammars result in a subclass of this object. A Lexer object
-//  uses simplified match() and error recovery mechanisms in the interest of speed.
+const DEFAULT_MODE = 0;
+const MORE = -2;
+const SKIP = -3;
+const MIN_CHAR_VALUE = 0x0000;
+const MAX_CHAR_VALUE = 0x10FFFF;
 
-var Token = require('./Token').Token;
-var Recognizer = require('./Recognizer').Recognizer;
-var CommonTokenFactory = require('./CommonTokenFactory').CommonTokenFactory;
-var RecognitionException  = require('./error/Errors').RecognitionException;
-var LexerNoViableAltException = require('./error/Errors').LexerNoViableAltException;
-
-function TokenSource() {
-	return this;
-}
-
-function Lexer(input) {
-	Recognizer.call(this);
-	this._input = input;
-	this._factory = CommonTokenFactory.DEFAULT;
-	this._tokenFactorySourcePair = [ this, input ];
-
-	this._interp = null; // child classes must populate this
-
-	// The goal of all lexer rules/methods is to create a token object.
-	// this is an instance variable as multiple rules may collaborate to
-	// create a single token. nextToken will return this object after
-	// matching lexer rule(s). If you subclass to allow multiple token
-	// emissions, then set this to the last token to be matched or
-	// something nonnull so that the auto token emit mechanism will not
-	// emit another token.
-	this._token = null;
-
-	// What character index in the stream did the current token start at?
-	// Needed, for example, to get the text for current token. Set at
-	// the start of nextToken.
-	this._tokenStartCharIndex = -1;
-
-	// The line on which the first character of the token resides///
-	this._tokenStartLine = -1;
-
-	// The character position of first character within the line///
-	this._tokenStartColumn = -1;
-
-	// Once we see EOF on char stream, next token will be EOF.
-	// If you have DONE : EOF ; then you see DONE EOF.
-	this._hitEOF = false;
-
-	// The channel number for the current token///
-	this._channel = Token.DEFAULT_CHANNEL;
-
-	// The token type for the current token///
-	this._type = Token.INVALID_TYPE;
-
-	this._modeStack = [];
-	this._mode = Lexer.DEFAULT_MODE;
-
-	// You can set the text for the current token to override what is in
-	// the input char buffer. Use setText() or can set this instance var.
-	// /
-	this._text = null;
-
-	return this;
-}
-
-Lexer.prototype = Object.create(Recognizer.prototype);
-Lexer.prototype.constructor = Lexer;
-
-Lexer.DEFAULT_MODE = 0;
-Lexer.MORE = -2;
-Lexer.SKIP = -3;
-
-Lexer.DEFAULT_TOKEN_CHANNEL = Token.DEFAULT_CHANNEL;
-Lexer.HIDDEN = Token.HIDDEN_CHANNEL;
-Lexer.MIN_CHAR_VALUE = 0x0000;
-Lexer.MAX_CHAR_VALUE = 0x10FFFF;
-
-Lexer.prototype.reset = function() {
-	// wack Lexer state variables
-	if (this._input !== null) {
-		this._input.seek(0); // rewind the input
+class TokenSource {}
+/**
+ *
+ * @description
+ * A Lexer is a recognizer that draws input symbols from a character stream.
+ * Lexer grammars result in a subclass of this object. A Lexer object uses
+ * simplified match() and error recovery mechanisms in the interest of speed.
+ *
+ * @property _input
+ * @property {CommonTokenFactory} _factory
+ * @property {array} [_tokenFactorySourcePair=[Lexer, *]]
+ * @property {*} _interp - populated by child classes
+ * @property {string} _token - The goal of all lexer rules/methods is to
+ * create a token object. This is an instance variable as multiple rules may
+ * collaborate to create a single token. nextToken will return this object
+ * after matching lexer rule(s). If you subclass to allow multiple token
+ * emissions then set this to the last token to be matched or something
+ * non-null so that the auto token emit mechanism will not emit another token.
+ * @property {number} [_tokenStartIndex=-1] - What character index in the
+ * stream did
+ * this current token start at? Needed, for example, to get the text for the
+ * current token. Set at the start of the nextToken.
+ * @property {number} [_tokenStartLine=-1] - The line on which the first
+ * character of the token resides.
+ * @property {boolean} [_hitEOF=false] - Once an EOF character is seen on the
+ * stream, next token will be EOF. If you have DONE : EOF ; then you see
+ * DONE EOF.
+ * @property {number} [_channel=Token.DEFAULT_CHANNEL] - the channel number
+ * for the current token.
+ * @property {number} [_type=Token.INVALID_TYPE] - the token type for the
+ * current token.
+ * @property {array} [_modeStack=[]]
+ * @property {number} [_mode=Lexer.DEFAULT_CHANNEL]
+ * @property {?string} _text - You can set the text for the current token to
+ * override what is in the input char buffer. Use setText() or can set this
+ * instance var.
+ *
+ *
+ */
+class Lexer extends TokenSource {
+	constructor(input) {
+		this._input = input;
+		this._factory = CommonTokenFactory.DEFAULT;
+		this._tokenFactorySourcePair = [ this, input ];
+		this._interp = null;
+		this._token = null;
+		this._tokenStartCharIndex = -1;
+		this._tokenStartLine = -1;
+		this._tokenStartColumn = -1;
+		this._hitEOF = false;
+		this._channel = Token.DEFAULT_CHANNEL;
+		this._modeStack = [];
+		this._mode = Lexer.DEFAULT_MODE;
+		this._text = null;
 	}
-	this._token = null;
-	this._type = Token.INVALID_TYPE;
-	this._channel = Token.DEFAULT_CHANNEL;
-	this._tokenStartCharIndex = -1;
-	this._tokenStartColumn = -1;
-	this._tokenStartLine = -1;
-	this._text = null;
-
-	this._hitEOF = false;
-	this._mode = Lexer.DEFAULT_MODE;
-	this._modeStack = [];
-
-	this._interp.reset();
-};
-
-// Return a token from this source; i.e., match a token on the char stream.
-Lexer.prototype.nextToken = function() {
-	if (this._input === null) {
-		throw "nextToken requires a non-null input stream.";
+	static get DEFAULT_MODE() {
+		return DEFAULT_MODE;
 	}
-
-	// Mark start location in char stream so unbuffered streams are
-	// guaranteed at least have text of current token
-	var tokenStartMarker = this._input.mark();
-	try {
-		while (true) {
-			if (this._hitEOF) {
-				this.emitEOF();
+	static get MORE() {
+		return MORE;
+	}
+	static get SKIP() {
+		return SKIP;
+	}
+	static get DEFAULT_TOKEN_CHANNEL() {
+		return Token.DEFAULT_CHANNEL;
+	}
+	static get HIDDEN() {
+		return Token.HIDDEN_CHANNEL;
+	}
+	static get MIN_CHAR_VALUE() {
+		return MIN_CHAR_VALUE;
+	}
+	static get MAX_CHAR_VALUE() {
+		return MAX_CHAR_VALUE;
+	}
+	reset() {
+		if (this._input != null) {
+			this._input.seek(0);
+		}
+		this._token = null;
+		this._type = Token.INVALID_TYPE;
+		this._channel = Token.DEFAULT_CHANNEL;
+		this._tokenStartCharIndex = -1;
+		this._tokenStartColumn = -1;
+		this._tokenStartLine = -1;
+		this._text = null;
+		this._hitEOF = false;
+		this._mode = Lexer.DEFAULT_MODE;
+		this._modeStack = [];
+		this._interp.reset();
+	}
+	/**
+	 *
+	 * @description
+	 * Return a token from this source; i.e., match a token on the character
+	 * stream.
+	 *
+	 * @returns {string|null|*}
+	 */
+	nextToken() {
+		if (this._input == null) {
+			throw new Error('nextToken requires a non-null input stream');
+		}
+		// Mark start location in char stream so unbuffered streams are
+		// guaranteed at least have text of current token
+		const tokenStarterMarker = this._input.mark();
+		try {
+			while(true) {
+				if (this._hitEOF) {
+					this.emitEOF();
+					return this._token;
+				}
+				this._token = null;
+				this._channel = Token.DEFAULT_CHANNEL;
+				this._tokenStartCharIndex = this._input.index;
+				this._tokenStartColumn = this._interp.column;
+				this._tokenStartLine = this._interp.line;
+				this._text = null;
+				let continueOuter = false;
+				while (true) {
+					this._type = Token.INVALID_TYPE;
+					let ttype = Lexer.SKIP;
+					try {
+						ttype = this._interp.match(this._input, this._mode);
+					} catch (e) {
+						if (e instanceof RecognitionException) {
+							this.notifyListeners(e);
+							this.recover(e);
+						} else {
+							console.error(e);
+							throw e;
+						}
+					}
+					if (this._input.LA(1) === Token.EOF) {
+						this._hitEOF = true;
+					}
+					if (this._type === Token.INVALID_TYPE) {
+						this._type = ttype;
+					}
+					if (this._type === Lexer.SKIP) {
+						continueOuter = true;
+						break;
+					}
+					if (this._type === Lexer.MORE) {
+						break;
+					}
+				}
+				if (continueOuter) {
+					continue;
+				}
+				if (this._token == null) {
+					this.emit();
+				}
 				return this._token;
 			}
-			this._token = null;
-			this._channel = Token.DEFAULT_CHANNEL;
-			this._tokenStartCharIndex = this._input.index;
-			this._tokenStartColumn = this._interp.column;
-			this._tokenStartLine = this._interp.line;
-			this._text = null;
-			var continueOuter = false;
-			while (true) {
-				this._type = Token.INVALID_TYPE;
-				var ttype = Lexer.SKIP;
-				try {
-					ttype = this._interp.match(this._input, this._mode);
-				} catch (e) {
-				    if(e instanceof RecognitionException) {
-                        this.notifyListeners(e); // report error
-                        this.recover(e);
-                    } else {
-                        console.log(e.stack);
-                        throw e;
-                    }
-				}
-				if (this._input.LA(1) === Token.EOF) {
-					this._hitEOF = true;
-				}
-				if (this._type === Token.INVALID_TYPE) {
-					this._type = ttype;
-				}
-				if (this._type === Lexer.SKIP) {
-					continueOuter = true;
-					break;
-				}
-				if (this._type !== Lexer.MORE) {
-					break;
-				}
-			}
-			if (continueOuter) {
-				continue;
-			}
-			if (this._token === null) {
-				this.emit();
-			}
-			return this._token;
+		} finally {
+			// make sure we release marker after match or
+			// unbuffered char stream will keep buffering
+			this._input.release(tokenStarterMarker);
 		}
-	} finally {
-		// make sure we release marker after match or
-		// unbuffered char stream will keep buffering
-		this._input.release(tokenStartMarker);
 	}
-};
-
-// Instruct the lexer to skip creating a token for current lexer rule
-// and look for another token. nextToken() knows to keep looking when
-// a lexer rule finishes with token set to SKIP_TOKEN. Recall that
-// if token==null at end of any token rule, it creates one for you
-// and emits it.
-// /
-Lexer.prototype.skip = function() {
-	this._type = Lexer.SKIP;
-};
-
-Lexer.prototype.more = function() {
-	this._type = Lexer.MORE;
-};
-
-Lexer.prototype.mode = function(m) {
-	this._mode = m;
-};
-
-Lexer.prototype.pushMode = function(m) {
-	if (this._interp.debug) {
-		console.log("pushMode " + m);
+	/**
+	 *
+	 * @description
+	 * Instruct the lexer to skip creating a token for current lexer rule and
+	 * look for another token. nextToken() knows to keep looking when a lexer
+	 * rule finishes with set to SKIP_TOKEN. Recall that if token == null at
+	 * end of any rule it creates one for you and emits it.
+	 *
+	 */
+	skip() {
+		this._type = Lexer.SKIP;
 	}
-	this._modeStack.push(this._mode);
-	this.mode(m);
-};
-
-Lexer.prototype.popMode = function() {
-	if (this._modeStack.length === 0) {
-		throw "Empty Stack";
+	more() {
+		this._type = Lexer.MORE;
 	}
-	if (this._interp.debug) {
-		console.log("popMode back to " + this._modeStack.slice(0, -1));
+	mode(mode) {
+		this._mode = mode;
 	}
-	this.mode(this._modeStack.pop());
-	return this._mode;
-};
-
-// Set the char stream and reset the lexer
-Object.defineProperty(Lexer.prototype, "inputStream", {
-	get : function() {
+	pushMode(mode) {
+		if (this._interp.debug) {
+			console.log(`pushMode ${mode}`);
+		}
+		this._modeStack.push(this._mode);
+		this.mode(mode);
+	}
+	popMode() {
+		if (this._modeStack.length === 0) {
+			throw new Error('Empty Stack');
+		}
+		if (this._interp.debug) {
+			console.log(`popMode back to ${this._modeStack.slice(0, -1)}`);
+		}
+		this.mode(this._modeStack.pop());
+		return this._mode;
+	}
+	get inputStream() {
 		return this._input;
-	},
-	set : function(input) {
+	}
+	// Set the char stream and reset the lexer
+	set inputStream(inputStream) {
 		this._input = null;
 		this._tokenFactorySourcePair = [ this, this._input ];
 		this.reset();
-		this._input = input;
+		this._input = inputStream;
 		this._tokenFactorySourcePair = [ this, this._input ];
 	}
-});
-
-Object.defineProperty(Lexer.prototype, "sourceName", {
-	get : function sourceName() {
+	get sourceName() {
 		return this._input.sourceName;
 	}
-});
-
-// By default does not support multiple emits per nextToken invocation
-// for efficiency reasons. Subclass and override this method, nextToken,
-// and getToken (to push tokens into a list and pull from that list
-// rather than a single variable as this implementation does).
-// /
-Lexer.prototype.emitToken = function(token) {
-	this._token = token;
-};
-
-// The standard method called to automatically emit a token at the
-// outermost lexical rule. The token object should point into the
-// char buffer start..stop. If there is a text override in 'text',
-// use that to set the token's text. Override this method to emit
-// custom Token objects or provide a new factory.
-// /
-Lexer.prototype.emit = function() {
-	var t = this._factory.create(this._tokenFactorySourcePair, this._type,
-			this._text, this._channel, this._tokenStartCharIndex, this
-					.getCharIndex() - 1, this._tokenStartLine,
-			this._tokenStartColumn);
-	this.emitToken(t);
-	return t;
-};
-
-Lexer.prototype.emitEOF = function() {
-	var cpos = this.column;
-	var lpos = this.line;
-	var eof = this._factory.create(this._tokenFactorySourcePair, Token.EOF,
-			null, Token.DEFAULT_CHANNEL, this._input.index,
-			this._input.index - 1, lpos, cpos);
-	this.emitToken(eof);
-	return eof;
-};
-
-Object.defineProperty(Lexer.prototype, "type", {
-	get : function() {
-		return this.type;
-	},
-	set : function(type) {
+	// By default does not support multiple emits per nextToken invocation
+	// for efficiency reasons. Subclass and override this method, nextToken,
+	// and getToken (to push tokens into a list and pull from that list
+	// rather than a single variable as this implementation does).
+	emitToken(token) {
+		this._token = token;
+	}
+	// The standard method called to automatically emit a token at the
+	// outermost lexical rule. The token object should point into the
+	// char buffer start..stop. If there is a text override in 'text',
+	// use that to set the token's text. Override this method to emit
+	// custom Token objects or provide a new factory.
+	emit() {
+		const token = this._factory.create(
+			this._tokenFactorySourcePair,
+			this._type,
+			this._text,
+			this._channel,
+			this._tokenStartCharIndex,
+			this.getCharIndex() - 1,
+			this._tokenStartLine,
+			this._tokenStartColumn
+		);
+		this.emitToken(token);
+		return token;
+	}
+	emitEOF() {
+		const eof = this._factory.create(
+			this._tokenFactorySourcePair,
+			Token.EOF,
+			null,
+			Token.DEFAULT_CHANNEL,
+			this._input.index,
+			this._input.index - 1,
+			this.line,
+			this.column
+		);
+		this.emitToken(eof);
+		return eof;
+	}
+	get type() {
+		return this._type;
+	}
+	set type(type) {
 		this._type = type;
 	}
-});
-
-Object.defineProperty(Lexer.prototype, "line", {
-	get : function() {
+	get line() {
 		return this._interp.line;
-	},
-	set : function(line) {
+	}
+	set line(line) {
 		this._interp.line = line;
 	}
-});
-
-Object.defineProperty(Lexer.prototype, "column", {
-	get : function() {
+	get column() {
 		return this._interp.column;
-	},
-	set : function(column) {
+	}
+	set(column) {
 		this._interp.column = column;
 	}
-});
-
-
-// What is the index of the current character of lookahead?///
-Lexer.prototype.getCharIndex = function() {
-	return this._input.index;
-};
-
-// Return the text matched so far for the current token or any text override.
-//Set the complete text of this token; it wipes any previous changes to the text.
-Object.defineProperty(Lexer.prototype, "text", {
-	get : function() {
-		if (this._text !== null) {
-			return this._text;
-		} else {
+	// What is the index of the current character of lookahead?///
+	getCharIndex() {
+		return this._input.index;
+	}
+	// Return the text matched so far for the current token or any text override.
+	get text() {
+		if (this._text == null) {
 			return this._interp.getText(this._input);
 		}
-	},
-	set : function(text) {
+		return this._text;
+	}
+	// Set the complete text of this token; it wipes any previous changes to
+	// the text.
+	set text(text) {
 		this._text = text;
 	}
-});
-// Return a list of all Token objects in input char stream.
-// Forces load of all tokens. Does not include EOF token.
-// /
-Lexer.prototype.getAllTokens = function() {
-	var tokens = [];
-	var t = this.nextToken();
-	while (t.type !== Token.EOF) {
-		tokens.push(t);
-		t = this.nextToken();
+	// Return a list of all Token objects in input char stream.
+	// Forces load of all tokens. Does not include EOF token.
+	getAllTokens() {
+		const tokens = [];
+		let token = this.nextToken();
+		while (token.isPrototypeOf !== Token.EOF) {
+			tokens.push(token);
+			token = this.nextToken();
+		}
+		return tokens;
 	}
-	return tokens;
-};
-
-Lexer.prototype.notifyListeners = function(e) {
-	var start = this._tokenStartCharIndex;
-	var stop = this._input.index;
-	var text = this._input.getText(start, stop);
-	var msg = "token recognition error at: '" + this.getErrorDisplay(text) + "'";
-	var listener = this.getErrorListenerDispatch();
-	listener.syntaxError(this, null, this._tokenStartLine,
-			this._tokenStartColumn, msg, e);
-};
-
-Lexer.prototype.getErrorDisplay = function(s) {
-	var d = [];
-	for (var i = 0; i < s.length; i++) {
-		d.push(s[i]);
+	notifyListeners(e) {
+		const start = this._tokenStartCharIndex;
+		const stop = this._input.index;
+		const text = this._input.getText(start, stop);
+		const msg = `token recognition error at: ${this.getErrorDisplay(text)}`;
+		let listener = this.getErrorListenerDispatch();
+		listener.syntaxError(
+			this,
+			null,
+			this._tokenStartLine,
+			this._tokenStartColumn,
+			msg,
+			e
+		);
 	}
-	return d.join('');
-};
-
-Lexer.prototype.getErrorDisplayForChar = function(c) {
-	if (c.charCodeAt(0) === Token.EOF) {
-		return "<EOF>";
-	} else if (c === '\n') {
-		return "\\n";
-	} else if (c === '\t') {
-		return "\\t";
-	} else if (c === '\r') {
-		return "\\r";
-	} else {
-		return c;
+	getErrorDisplay(string) {
+		const d = [];
+		const stringLength = string.length;
+		for (let i = 0; i < stringLength; i++) {
+			d.push(string[i]);
+		}
+		return d.join('');
 	}
-};
-
-Lexer.prototype.getCharErrorDisplay = function(c) {
-	return "'" + this.getErrorDisplayForChar(c) + "'";
-};
-
-// Lexers can normally match any char in it's vocabulary after matching
-// a token, so do the easy thing and just kill a character and hope
-// it all works out. You can instead use the rule invocation stack
-// to do sophisticated error recovery if you are in a fragment rule.
-// /
-Lexer.prototype.recover = function(re) {
-	if (this._input.LA(1) !== Token.EOF) {
-		if (re instanceof LexerNoViableAltException) {
-			// skip a char and try again
-			this._interp.consume(this._input);
+	getErrorDisplayForChar(char) {
+		if (char.charCodeAt(0) === Token.EOF) {
+			return EOF;
+		} else if (char === '\n') {
+			return '\\n';
+		} else if (char === '\t') {
+			return '\\t';
+		} else if (char === '\r') {
+			return '\\r';
 		} else {
-			// TODO: Do we lose character or line position information?
-			this._input.consume();
+			return char;
 		}
 	}
-};
+	getCharErrorDisplay(char) {
+		return `${this.getErrorDisplayForChar(char)}`;
+	}
+	// Lexers can normally match any char in it's vocabulary after matching
+	// a token, so do the easy thing and just kill a character and hope
+	// it all works out. You can instead use the rule invocation stack
+	// to do sophisticated error recovery if you are in a fragment rule.
+	recover(re) {
+		if (this._input.LA(1) === Token.EOF) {
+			// TODO: Do we lose character or line position information?
+			this._input.consume();
+		} else {
+			if (re instanceof LexerNoViableAltException) {
+				// skip a char and try again
+				this._interp.consume(this._input);
+			}
+		}
+	}
+}
 
-module.exports = Lexer;
+export default Lexer;

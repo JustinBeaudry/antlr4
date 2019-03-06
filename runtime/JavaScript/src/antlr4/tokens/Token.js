@@ -4,18 +4,7 @@
  * Use of this file is governed by the BSD 3-clause license that
  * can be found in the LICENSE.txt file in the project root.
  */
-/**
- *
- * @type "<EOF>"
- * @constant
- */
-const EOF = '<EOF>';
-/**
- *
- * @type "<no text>"
- * @constant
- */
-const NO_TEXT = '<no text>';
+import {NO_TEXT, EOF} from './constants';
 /**
  *
  * @property {array} source

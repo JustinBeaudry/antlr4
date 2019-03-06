@@ -8,7 +8,7 @@
 //  It is the most abstract interface for all the trees used by ANTLR.
 ///
 
-var Token = require('./../Token').Token;
+var Token = require('../tokens/Token').Token;
 var Interval = require('./../IntervalSet').Interval;
 var INVALID_INTERVAL = new Interval(-1, -2);
 var Utils = require('../Utils.js');

@@ -7,7 +7,7 @@
 
 var Set = require('./Utils').Set;
 var BitSet = require('./Utils').BitSet;
-var Token = require('./Token').Token;
+var Token = require('./tokens/Token').Token;
 var ATNConfig = require('./atn/ATNConfig').ATNConfig;
 var Interval = require('./IntervalSet').Interval;
 var IntervalSet = require('./IntervalSet').IntervalSet;

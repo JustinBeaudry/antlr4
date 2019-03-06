@@ -3,7 +3,7 @@
  * can be found in the LICENSE.txt file in the project root.
  */
 
-var Token = require('./Token').Token;
+var Token = require('./tokens/Token').Token;
 var ParseTreeListener = require('./tree/Tree').ParseTreeListener;
 var Recognizer = require('./Recognizer').Recognizer;
 var DefaultErrorStrategy = require('./error/ErrorStrategy').DefaultErrorStrategy;

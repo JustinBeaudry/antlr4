@@ -3,12 +3,11 @@
  * Copyright (c) 2012-2017 The ANTLR Project. All rights reserved.
  * Use of this file is governed by the BSD 3-clause license that
  * can be found in the LICENSE.txt file in the project root.
- **/
-
+ * @license BSD-3-Clause
+ */
 import {Token} from './Token';
-import Lexer from './Lexer';
-import {Interval} from './IntervalSet';
-
+import Lexer from '../Lexer';
+import {Interval} from '../IntervalSet';
 /**
  *
  * @description
@@ -21,7 +20,6 @@ class TokenStream {
 		return this;
 	}
 }
-
 /**
  *
  * @description
@@ -90,7 +88,7 @@ class BufferedTokenStream extends TokenStream {
 	}
 	/**
 	 *
-	 * @param marker
+	 * @param {number} marker
 	 * @void
 	 */
 	release(marker) {
@@ -145,6 +143,9 @@ class BufferedTokenStream extends TokenStream {
 	 * @returns {boolean}
 	 */
 	sync(index) {
+		// @NOTE: this is not a "pure" function in the sense that calling this
+		//        function according to its description has side effects.
+		//        Consider refactoring to be atomic.
 		const elementsNeeded = index - this.tokens.length + 1;
 		if (elementsNeeded > 0) {
 			return this.fetch(elementsNeeded) >= elementsNeeded;

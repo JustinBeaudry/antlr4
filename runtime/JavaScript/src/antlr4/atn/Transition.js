@@ -16,7 +16,7 @@
 //  the states. We'll use the term Edge for the DFA to distinguish them from
 //  ATN transitions.</p>
 
-var Token = require('./../Token').Token;
+var Token = require('../tokens/Token').Token;
 var Interval = require('./../IntervalSet').Interval;
 var IntervalSet = require('./../IntervalSet').IntervalSet;
 var Predicate = require('./SemanticContext').Predicate;

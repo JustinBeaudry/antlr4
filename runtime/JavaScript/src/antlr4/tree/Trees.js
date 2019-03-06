@@ -4,7 +4,7 @@
  */
 
 var Utils = require('./../Utils');
-var Token = require('./../Token').Token;
+var Token = require('../tokens/Token').Token;
 var RuleNode = require('./Tree').RuleNode;
 var ErrorNode = require('./Tree').ErrorNode;
 var TerminalNode = require('./Tree').TerminalNode;

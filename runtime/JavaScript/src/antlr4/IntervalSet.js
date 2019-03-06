@@ -5,7 +5,7 @@
 
 /*jslint smarttabs:true */
 
-var Token = require('./Token').Token;
+var Token = require('./tokens/Token').Token;
 
 /* stop is not included! */
 function Interval(start, stop) {

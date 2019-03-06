@@ -21,7 +21,7 @@
 //  can simply return the predicted token type.</p>
 ///
 
-var Token = require('./../Token').Token;
+var Token = require('../tokens/Token').Token;
 var Lexer = require('./../Lexer').Lexer;
 var ATN = require('./ATN').ATN;
 var ATNSimulator = require('./ATNSimulator').ATNSimulator;

@@ -109,7 +109,7 @@ ATN.prototype.getDecisionState = function( decision) {
 // specified state in the specified context.
 // @throws IllegalArgumentException if the ATN does not contain a state with
 // number {@code stateNumber}
-var Token = require('./../Token').Token;
+var Token = require('../tokens/Token').Token;
 
 ATN.prototype.getExpectedTokens = function( stateNumber, ctx ) {
     if ( stateNumber < 0 || stateNumber >= this.states.length ) {
