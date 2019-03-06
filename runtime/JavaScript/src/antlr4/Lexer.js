@@ -368,4 +368,4 @@ Lexer.prototype.recover = function(re) {
 	}
 };
 
-exports.Lexer = Lexer;
+module.exports = Lexer;

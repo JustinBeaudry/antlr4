@@ -15,361 +15,414 @@
 // {@link Token//HIDDEN_CHANNEL}, use a filtering token stream such a
 // {@link CommonTokenStream}.</p>
 
-var Token = require('./Token').Token;
-var Lexer = require('./Lexer').Lexer;
-var Interval = require('./IntervalSet').Interval;
+const Token = require('./Token').Token;
+const Lexer = require('./Lexer');
+const Interval = require('./IntervalSet').Interval;
 
 // this is just to keep meaningful parameter types to Parser
-function TokenStream() {
-	return this;
+class TokenStream {
+	constructor() {
+		return this;
+	}
 }
 
-function BufferedTokenStream(tokenSource) {
-
-	TokenStream.call(this);
-	// The {@link TokenSource} from which tokens for this stream are fetched.
-	this.tokenSource = tokenSource;
-
-	// A collection of all tokens fetched from the token source. The list is
-	// considered a complete view of the input once {@link //fetchedEOF} is set
-	// to {@code true}.
-	this.tokens = [];
-
-	// The index into {@link //tokens} of the current token (next token to
-	// {@link //consume}). {@link //tokens}{@code [}{@link //p}{@code ]} should
-	// be
-	// {@link //LT LT(1)}.
-	//
-	// <p>This field is set to -1 when the stream is first constructed or when
-	// {@link //setTokenSource} is called, indicating that the first token has
-	// not yet been fetched from the token source. For additional information,
-	// see the documentation of {@link IntStream} for a description of
-	// Initializing Methods.</p>
-	this.index = -1;
-
-	// Indicates whether the {@link Token//EOF} token has been fetched from
-	// {@link //tokenSource} and added to {@link //tokens}. This field improves
-	// performance for the following cases:
-	//
-	// <ul>
-	// <li>{@link //consume}: The lookahead check in {@link //consume} to
-	// prevent
-	// consuming the EOF symbol is optimized by checking the values of
-	// {@link //fetchedEOF} and {@link //p} instead of calling {@link
-	// //LA}.</li>
-	// <li>{@link //fetch}: The check to prevent adding multiple EOF symbols
-	// into
-	// {@link //tokens} is trivial with this field.</li>
-	// <ul>
-	this.fetchedEOF = false;
-	return this;
-}
-
-BufferedTokenStream.prototype = Object.create(TokenStream.prototype);
-BufferedTokenStream.prototype.constructor = BufferedTokenStream;
-
-BufferedTokenStream.prototype.mark = function() {
-	return 0;
-};
-
-BufferedTokenStream.prototype.release = function(marker) {
-	// no resources to release
-};
-
-BufferedTokenStream.prototype.reset = function() {
-	this.seek(0);
-};
-
-BufferedTokenStream.prototype.seek = function(index) {
-	this.lazyInit();
-	this.index = this.adjustSeekIndex(index);
-};
-
-BufferedTokenStream.prototype.get = function(index) {
-	this.lazyInit();
-	return this.tokens[index];
-};
-
-BufferedTokenStream.prototype.consume = function() {
-	var skipEofCheck = false;
-	if (this.index >= 0) {
-		if (this.fetchedEOF) {
-			// the last token in tokens is EOF. skip check if p indexes any
-			// fetched token except the last.
-			skipEofCheck = this.index < this.tokens.length - 1;
-		} else {
-			// no EOF token in tokens. skip check if p indexes a fetched token.
-			skipEofCheck = this.index < this.tokens.length;
-		}
-	} else {
-		// not yet initialized
-		skipEofCheck = false;
+/**
+ *
+ * @class BufferedTokenStream
+ * @extends TokenStream
+ * @property {string[]} [tokens=[]]
+ * @property {number} [index=-1]
+ * @property {boolean} [fetchedEOF=false]
+ */
+class BufferedTokenStream extends TokenStream {
+	/**
+	 *
+	 * @param {@link TokenSource} tokenSource
+	 * @returns {BufferedTokenStream}
+	 */
+	constructor(tokenSource) {
+		super();
+		// The {@link TokenSource} from which tokens for this stream are fetched.
+		this.tokenSource = tokenSource;
+		// A collection of all tokens fetched from the token source. The list is
+		// considered a complete view of the input once {@link //fetchedEOF} is set
+		// to {@code true}.
+		this.tokens = [];
+		// The index into {@link //tokens} of the current token (next token to
+		// {@link //consume}). {@link //tokens}{@code [}{@link //p}{@code ]} should
+		// be
+		// {@link //LT LT(1)}.
+		//
+		// <p>This field is set to -1 when the stream is first constructed or when
+		// {@link //setTokenSource} is called, indicating that the first token has
+		// not yet been fetched from the token source. For additional information,
+		// see the documentation of {@link IntStream} for a description of
+		// Initializing Methods.</p>
+		this.index = -1;
+		// Indicates whether the {@link Token//EOF} token has been fetched from
+		// {@link //tokenSource} and added to {@link //tokens}. This field improves
+		// performance for the following cases:
+		//
+		// <ul>
+		// <li>{@link //consume}: The lookahead check in {@link //consume} to
+		// prevent
+		// consuming the EOF symbol is optimized by checking the values of
+		// {@link //fetchedEOF} and {@link //p} instead of calling {@link
+		// //LA}.</li>
+		// <li>{@link //fetch}: The check to prevent adding multiple EOF symbols
+		// into
+		// {@link //tokens} is trivial with this field.</li>
+		// <ul>
+		this.fetchedEOF = false;
+		return this;
 	}
-	if (!skipEofCheck && this.LA(1) === Token.EOF) {
-		throw "cannot consume EOF";
-	}
-	if (this.sync(this.index + 1)) {
-		this.index = this.adjustSeekIndex(this.index + 1);
-	}
-};
-
-// Make sure index {@code i} in tokens has a token.
-//
-// @return {@code true} if a token is located at index {@code i}, otherwise
-// {@code false}.
-// @see //get(int i)
-// /
-BufferedTokenStream.prototype.sync = function(i) {
-	var n = i - this.tokens.length + 1; // how many more elements we need?
-	if (n > 0) {
-		var fetched = this.fetch(n);
-		return fetched >= n;
-	}
-	return true;
-};
-
-// Add {@code n} elements to buffer.
-//
-// @return The actual number of elements added to the buffer.
-// /
-BufferedTokenStream.prototype.fetch = function(n) {
-	if (this.fetchedEOF) {
+	/**
+	 *
+	 * @returns {number}
+	 */
+	mark() {
 		return 0;
 	}
-	for (var i = 0; i < n; i++) {
-		var t = this.tokenSource.nextToken();
-		t.tokenIndex = this.tokens.length;
-		this.tokens.push(t);
-		if (t.type === Token.EOF) {
-			this.fetchedEOF = true;
-			return i + 1;
+	/**
+	 *
+	 * @param marker
+	 * @void
+	 */
+	release(marker) {
+		// no resource to release
+	}
+	/**
+	 *
+	 * @void
+	 */
+	reset() {
+		this.seek(0);
+	}
+	/**
+	 *
+	 * @param {number} index
+	 * @void
+	 */
+	seek(index) {
+		this.lazyInit();
+		this.index = this.adjustSeekIndex(index);
+	}
+	/**
+	 *
+	 * @param {number }index
+	 * @returns {string}
+	 */
+	get(index) {
+		this.lazyInit();
+		return this.tokens[index];
+	}
+	consume() {
+		let skipEOFCheck = false;
+		if (this.index >= 0) {
+			// the last token in tokens is EOF. skip check if p indexes any
+			// fetched token except the last.
+			const isEOF = this.index < this.tokens.length;
+			skipEOFCheck = this.fetchedEOF ? isEOF - 1 : isEOF;
+		}
+		if (!skipEOFCheck && this.LA(1) === Token.EOF) {
+			throw new Error('cannot consume EOF');
+		}
+		if (this.sync(this.index + 1)) {
+			this.index = this.adjustSeekIndex(this.index +1);
 		}
 	}
-	return n;
-};
-
-// Get all tokens from start..stop inclusively///
-BufferedTokenStream.prototype.getTokens = function(start, stop, types) {
-	if (types === undefined) {
-		types = null;
-	}
-	if (start < 0 || stop < 0) {
-		return null;
-	}
-	this.lazyInit();
-	var subset = [];
-	if (stop >= this.tokens.length) {
-		stop = this.tokens.length - 1;
-	}
-	for (var i = start; i < stop; i++) {
-		var t = this.tokens[i];
-		if (t.type === Token.EOF) {
-			break;
+	/**
+	 *
+	 * Make sure {@code index} in tokens has a token. Returns {@code true} if a token is located at index
+	 * {@code index}, otherwise returns {@code false}.
+	 *
+	 * @param {number} index
+	 * @returns {boolean}
+	 */
+	sync(index) {
+		const elementsNeeded = index - this.tokens.length + 1;
+		if (elementsNeeded > 0) {
+			return this.fetch(elementsNeeded) >= elementsNeeded;
 		}
-		if (types === null || types.contains(t.type)) {
-			subset.push(t);
+		return true;
+	}
+	/**
+	 *
+	 * @param {number} elementsToBuffer
+	 * @returns {number}
+	 */
+	fetch(elementsToBuffer) {
+		if (this.fetchedEOF) {
+			return 0;
+		}
+		for (let i=0; i < elementsToBuffer; i++) {
+			const token = this.tokenSource.nextToken();
+			token.tokenIndex = this.tokens.length;
+			this.tokens.push(token);
+			if (token.type === Token.EOF) {
+				this.fetchedEOF = true;
+				return i + 1;
+			}
+		}
+		return elementsToBuffer;
+	}
+	/**
+	 *
+	 * Get all tokens in a range from {@code start} to {@code stop} inclusively
+	 *
+	 * @param {number} start
+	 * @param {number} stopElement
+	 * @param types
+	 * @returns {null|Array}
+	 */
+	getTokens(start, stop, types) {
+		// coerce using == so this matches undefined or null
+		if (types == null) {
+			types = null;
+		}
+		if (start < 0 || stop < 0) {
+			return null;
+		}
+		this.lazyInit();
+		const subset = [];
+		if (stop >= this.tokens.length) {
+			stop = this.tokens.length - 1;
+		}
+		for (let i = start; i < stop; i++) {
+			const token = this.tokens = this.tokens[i];
+			if (token.type === Token.EOF) {
+				break;
+			}
+			if (types == null || types.contains(token.type)) {
+				subset.push(token);
+			}
+		}
+		return subset;
+	}
+	LA(i) {
+		return this.LT(i).type;
+	}
+	LB(k) {
+		if (this.index - k < 0) {
+			return null;
+		}
+		return this.tokens[this.index - k];
+	}
+	LT(k) {
+		this.lazyInit();
+		if (k === 0) {
+			return this.LB(-k);
+		}
+		const i = this.index + k - 1;
+		this.sync(i);
+		// return EOF token
+		if (i >= this.tokens.length) {
+			// EOF must be last token
+			return this.tokens[this.tokens.length - 1];
+		}
+		return this.tokens[i];
+	}
+	/**
+	 *
+	 * Allows derived classes to modify the behavior of operations which change
+	 * the current stream position by adjusting the target token index of a seek
+	 * operation. The default implementation simply returns the passed in {@code index}.
+	 * If an exception is thrown in this method, the current stream index should not be change.
+	 *
+	 * @example
+	 * For example, {@link CommonTokenStream} overrides this method to ensure that the seek target
+	 * is always an on-channel token.
+	 *
+	 * @param {number} index - the target token index
+	 * @returns {number} - the adjusted target token index
+	 */
+	adjustSeekIndex(index) {
+		return index;
+	}
+	lazyInit() {
+		if (this.index === -1) {
+			this.setup();
 		}
 	}
-	return subset;
-};
-
-BufferedTokenStream.prototype.LA = function(i) {
-	return this.LT(i).type;
-};
-
-BufferedTokenStream.prototype.LB = function(k) {
-	if (this.index - k < 0) {
-		return null;
+	setup() {
+		this.sync(0);
+		this.index = this.adjustSeekIndex(0);
 	}
-	return this.tokens[this.index - k];
-};
-
-BufferedTokenStream.prototype.LT = function(k) {
-	this.lazyInit();
-	if (k === 0) {
-		return null;
+	/**
+	 *
+	 * Reset this token stream by setting it's token source.
+	 *
+	 * @param tokenSource
+	 */
+	setTokenSource(tokenSource) {
+		this.tokenSource = tokenSource;
+		this.tokens = [];
+		this.index = -1;
+		this.fetchedEOF = false;
 	}
-	if (k < 0) {
-		return this.LB(-k);
-	}
-	var i = this.index + k - 1;
-	this.sync(i);
-	if (i >= this.tokens.length) { // return EOF token
-		// EOF must be last token
-		return this.tokens[this.tokens.length - 1];
-	}
-	return this.tokens[i];
-};
-
-// Allowed derived classes to modify the behavior of operations which change
-// the current stream position by adjusting the target token index of a seek
-// operation. The default implementation simply returns {@code i}. If an
-// exception is thrown in this method, the current stream index should not be
-// changed.
-//
-// <p>For example, {@link CommonTokenStream} overrides this method to ensure
-// that
-// the seek target is always an on-channel token.</p>
-//
-// @param i The target token index.
-// @return The adjusted target token index.
-
-BufferedTokenStream.prototype.adjustSeekIndex = function(i) {
-	return i;
-};
-
-BufferedTokenStream.prototype.lazyInit = function() {
-	if (this.index === -1) {
-		this.setup();
-	}
-};
-
-BufferedTokenStream.prototype.setup = function() {
-	this.sync(0);
-	this.index = this.adjustSeekIndex(0);
-};
-
-// Reset this token stream by setting its token source.///
-BufferedTokenStream.prototype.setTokenSource = function(tokenSource) {
-	this.tokenSource = tokenSource;
-	this.tokens = [];
-	this.index = -1;
-	this.fetchedEOF = false;
-};
-
-
-// Given a starting index, return the index of the next token on channel.
-// Return i if tokens[i] is on channel. Return -1 if there are no tokens
-// on channel between i and EOF.
-// /
-BufferedTokenStream.prototype.nextTokenOnChannel = function(i, channel) {
-	this.sync(i);
-	if (i >= this.tokens.length) {
-		return -1;
-	}
-	var token = this.tokens[i];
-	while (token.channel !== this.channel) {
-		if (token.type === Token.EOF) {
+	/**
+	 *
+	 * Given a starting {@code index} return the index of the next token on channel.
+	 * Return {@code index} if {@code tokens[index]} is on channel. Return {@code -1} if there
+	 * are no tokens on channel between {@code index} and {@code EOF}.
+	 *
+	 * @param {number} index
+	 * @param channel
+	 * @returns {number}
+	 */
+	nextTokenOnChannel(index, channel) {
+		this.sync(index);
+		if (index >= this.tokens.length) {
 			return -1;
 		}
-		i += 1;
-		this.sync(i);
-		token = this.tokens[i];
-	}
-	return i;
-};
-
-// Given a starting index, return the index of the previous token on channel.
-// Return i if tokens[i] is on channel. Return -1 if there are no tokens
-// on channel between i and 0.
-BufferedTokenStream.prototype.previousTokenOnChannel = function(i, channel) {
-	while (i >= 0 && this.tokens[i].channel !== channel) {
-		i -= 1;
-	}
-	return i;
-};
-
-// Collect all tokens on specified channel to the right of
-// the current token up until we see a token on DEFAULT_TOKEN_CHANNEL or
-// EOF. If channel is -1, find any non default channel token.
-BufferedTokenStream.prototype.getHiddenTokensToRight = function(tokenIndex,
-		channel) {
-	if (channel === undefined) {
-		channel = -1;
-	}
-	this.lazyInit();
-	if (tokenIndex < 0 || tokenIndex >= this.tokens.length) {
-		throw "" + tokenIndex + " not in 0.." + this.tokens.length - 1;
-	}
-	var nextOnChannel = this.nextTokenOnChannel(tokenIndex + 1, Lexer.DEFAULT_TOKEN_CHANNEL);
-	var from_ = tokenIndex + 1;
-	// if none onchannel to right, nextOnChannel=-1 so set to = last token
-	var to = nextOnChannel === -1 ? this.tokens.length - 1 : nextOnChannel;
-	return this.filterForChannel(from_, to, channel);
-};
-
-// Collect all tokens on specified channel to the left of
-// the current token up until we see a token on DEFAULT_TOKEN_CHANNEL.
-// If channel is -1, find any non default channel token.
-BufferedTokenStream.prototype.getHiddenTokensToLeft = function(tokenIndex,
-		channel) {
-	if (channel === undefined) {
-		channel = -1;
-	}
-	this.lazyInit();
-	if (tokenIndex < 0 || tokenIndex >= this.tokens.length) {
-		throw "" + tokenIndex + " not in 0.." + this.tokens.length - 1;
-	}
-	var prevOnChannel = this.previousTokenOnChannel(tokenIndex - 1, Lexer.DEFAULT_TOKEN_CHANNEL);
-	if (prevOnChannel === tokenIndex - 1) {
-		return null;
-	}
-	// if none on channel to left, prevOnChannel=-1 then from=0
-	var from_ = prevOnChannel + 1;
-	var to = tokenIndex - 1;
-	return this.filterForChannel(from_, to, channel);
-};
-
-BufferedTokenStream.prototype.filterForChannel = function(left, right, channel) {
-	var hidden = [];
-	for (var i = left; i < right + 1; i++) {
-		var t = this.tokens[i];
-		if (channel === -1) {
-			if (t.channel !== Lexer.DEFAULT_TOKEN_CHANNEL) {
-				hidden.push(t);
+		let token = this.tokens[index];
+		while(token.channel !== this.channel) {
+			if (token.type === Token.EOF) {
+				return -1;
 			}
-		} else if (t.channel === channel) {
-			hidden.push(t);
+			index += 1;
+			this.sync(index);
+			token = this.tokens[index];
 		}
+		return index;
 	}
-	if (hidden.length === 0) {
-		return null;
-	}
-	return hidden;
-};
-
-BufferedTokenStream.prototype.getSourceName = function() {
-	return this.tokenSource.getSourceName();
-};
-
-// Get the text of all tokens in this buffer.///
-BufferedTokenStream.prototype.getText = function(interval) {
-	this.lazyInit();
-	this.fill();
-	if (interval === undefined || interval === null) {
-		interval = new Interval(0, this.tokens.length - 1);
-	}
-	var start = interval.start;
-	if (start instanceof Token) {
-		start = start.tokenIndex;
-	}
-	var stop = interval.stop;
-	if (stop instanceof Token) {
-		stop = stop.tokenIndex;
-	}
-	if (start === null || stop === null || start < 0 || stop < 0) {
-		return "";
-	}
-	if (stop >= this.tokens.length) {
-		stop = this.tokens.length - 1;
-	}
-	var s = "";
-	for (var i = start; i < stop + 1; i++) {
-		var t = this.tokens[i];
-		if (t.type === Token.EOF) {
-			break;
+	/**
+	 *
+	 * Given a starting {@code index} return the {@code index} of the previous token on {@code channel}.
+	 * Return {@code index} if {@code tokens[index]} is on {@code channel}. Return -1 if there
+	 * are no tokens on {@code channel} between {@code index} and {@code 0};
+	 *
+	 * @param {number} index
+	 * @param channel
+	 * @returns {*}
+	 */
+	previousTokenOnChannel(index, channel) {
+		while(index >= 0 && this.tokens[index].channel !== channel) {
+			index -= 1;
 		}
-		s = s + t.text;
+		return index;
 	}
-	return s;
-};
-
-// Get all tokens from lexer until EOF///
-BufferedTokenStream.prototype.fill = function() {
-	this.lazyInit();
-	while (this.fetch(1000) === 1000) {
-		continue;
+	/**
+	 *
+	 * @param {number} tokenIndex
+	 * @param channel
+	 * @returns {Array}
+	 */
+	getHiddenTokensToRigh(tokenIndex, channel) {
+		if (channel == null) {
+			channel = -1;
+		}
+		this.lazyInit();
+		if (tokenIndex < 0 || tokenIndex >= this.tokens.length) {
+			throw new Error(`${tokenIndex} not in 0..${this.tokens.length - 1}`);
+		}
+		const nextOnChannel = this.nextTokenOnChannel(tokenIndex + 1, Lexer.DEFAULT_TOKEN_CHANNEL);
+		const from = tokenIndex + 1;
+		const to = nextOnChannel === -1
+			? this.tokens.length - 1
+			: nextOnChannel
+			;
+		return this.filterForChannel(from,  to, channel);
 	}
-};
+	/**
+	 *
+	 * Collect all tokens on specified channel to the left of the current token
+	 * up until we see a token on DEFAULT_TOKEN_CHANNEL. If channel is -1 find any
+	 * non-default token.
+	 *
+	 * @param {index} tokenIndex
+	 * @param channel
+	 * @returns {null|Array}
+	 */
+	getHiddenTokensToLeft(tokenIndex, channel) {
+		if (channel == null) {
+			channel = -1;
+		}
+		this.lazyInit();
+		if (tokenIndex < 0 || tokenIndex >= this.tokens.length) {
+			throw new Error(`${tokenIndex} not in 0..${this.tokens.length - 1}`);
+		}
+		const prevOnChannel = this.previousTokenOnChannel(tokenIndex - 1, Lexer.DEFAULT_TOKEN_CHANNEL);
+		if (!prevOnChannel) {
+			return null;
+		}
+		const from = prevOnChannel + 1;
+		const to = tokenIndex - 1;
+		return this.filterForChannel(from, to, channel);
+	}
+	/**
+	 *
+	 * @param {number} left
+	 * @param {number} right
+	 * @param {string} channel
+	 * @returns {null|Array}
+	 */
+	filterForChannel(left, right, channel) {
+		const hidden = [];
+		for (let i = left; i < right + 1; i++) {
+			const token = this.tokens[i];
+			if (channel === -1) {
+				if (token.channel !== Lexer.DEFAULT_TOKEN_CHANNEL) {
+					hidden.push(token);
+				}
+			} else if (token.channel === channel) {
+				hidden.push(token);
+			}
+		}
+		if (hidden.length === 0) {
+			return null;
+		}
+		return hidden;
+	}
+	getSourceName() {
+		return this.tokenSource.getSourceName();
+	}
+	/**
+	 *
+	 * Get the text of all tokens in this buffer.
+	 *
+	 * @param {number} interval
+	 * @returns {string}
+	 */
+	getText(interval) {
+		this.lazyInit();
+		this.fill();
+		if (interval == null) {
+			interval = new Interval(0, this.tokens.length - 1);
+		}
+		let start = interval.start;
+		if (start instanceof Token) {
+			start = start.tokenIndex;
+		}
+		let stop = interval.stop;
+		if (stop instanceof Token) {
+			stop = stop.tokenIndex;
+		}
+		if (start == null || stop == null || start < 0 || stop < 0) {
+			return '';
+		}
+		if (stop >= this.tokens.length) {
+			stop = this.tokens.length - 1;
+		}
+		let tokenText = '';
+		for (let i = start; i < stop + 1; i++) {
+			const token = this.tokens[ i ];
+			if ( token.type === Token.EOF ) {
+				break;
+			}
+			tokenText += token.text;
+		}
+		return tokenText;
+	}
+	/**
+	 *
+	 * Get all tokens from lexer until EOF
+	 */
+	fill() {
+		const fillValue = 1000;
+		this.lazyInit();
+		while (this.fetch(fillValue) === fillValue) {}
+	}
+}
 
-exports.BufferedTokenStream = BufferedTokenStream;
+module.exports = BufferedTokenStream;
