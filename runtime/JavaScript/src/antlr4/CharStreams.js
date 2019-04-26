@@ -38,6 +38,9 @@ const fromString = string => new InputStream(string, true);
  * @param {string} encoding
  * @param {function} onLoad - success callback
  * @param {function} onError - error callback
+ * @callback onLoad
+ * @callback onError
+ * @void
  */
 const fromBlob = (blob, encoding, onLoad, onError) => {
 	if (isNode) {
@@ -116,8 +119,8 @@ const fromPathPromise = (path, encoding) => {
 	if (!hasPromise()) {
 		return null;
 	}
-	// @NOTE: NodeJS v10.0.0 added promise methods natively, for now we'll just
-	//       handle it manually here.
+	// @NOTE: NodeJS v10.0.0 added promise methods natively to the fs module,
+	// for now we'll just handle it manually here.
 	return new Promise((resolve, reject) => {
 		// just call fromPath and pass a callback, this allows fromPath to remain
 		//  the implementation source.

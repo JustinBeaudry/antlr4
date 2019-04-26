@@ -11,21 +11,16 @@ import {CommonToken} from './Token';
  * This default implementation of {@link TokenFactory} creates {@link CommonToken}
  * objects.
  */
-class TokenFactory {
-	constructor() {
-		return this;
-	}
-}
-const DEFAULT = new CommonTokenFactory();
+class TokenFactory {}
 /**
  *
  * @property {boolean} [copyText=false] - Indicates whether
- * {@link CommonToken//setText} should be called after constructing tokens
+ * {@link CommonToken#setText} should be called after constructing tokens
  * to explicitly set the text. This is useful for cases where the input
  * stream might not be able to provide arbitrary substrings of text from the
- * input after the lexer creates a token (e.g. the implementation of {@link CharStream//getText}
+ * input after the lexer creates a token (e.g. the implementation of {@link CharStreams#getText}
  * in {@link UnbufferedCharStream} throws an {@link UnsupportedOperationException}).
- * Explicitly setting the token text allows {@link Token//getText} to be
+ * Explicitly setting the token text allows {@link Token#getText} to be
  * called at any time regardless of the input stream implementation.
  *
  * <p>
@@ -42,7 +37,6 @@ class CommonTokenFactory extends TokenFactory {
 	constructor(copyText=false) {
 		super();
 		this.copyText = copyText;
-		return this;
 	}
 	/**
 	 *
@@ -57,7 +51,16 @@ class CommonTokenFactory extends TokenFactory {
 	 * @returns {CommonToken}
 	 */
 	create(source, type, text, channel, start, stop, line, column) {
-		let token = new CommonToken(source, type, text, channel, stop, stop, line, column);
+		let token = new CommonToken(
+			source,
+			type,
+			text,
+			channel,
+			stop,
+			stop,
+			line,
+			column
+		);
 		token.line = line;
 		token.column = column;
 		if (text != null) {
@@ -92,5 +95,14 @@ class CommonTokenFactory extends TokenFactory {
 		return DEFAULT;
 	}
 }
+/**
+ *
+ * @
+ *
+ * @type {CommonTokenFactory}
+ * @constant
+ * @private
+ */
+const DEFAULT = new CommonTokenFactory();
 
 export default CommonTokenFactory;

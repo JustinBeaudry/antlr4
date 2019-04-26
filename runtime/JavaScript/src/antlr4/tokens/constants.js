@@ -7,10 +7,22 @@
  */
 /**
  *
+ * @type "<no token>"
+ * @constant
+ */
+export const NO_TOKEN = '<no token>';
+/**
+ *
  * @type "<EOF>"
  * @constant
  */
 export const EOF = '<EOF>';
+/**
+ *
+ * @type {string}
+ * @constant
+ */
+export const MISSING_EOF = `<missing EOF>`;
 /**
  *
  * @type "<no text>"
@@ -23,3 +35,27 @@ export const NO_TEXT = '<no text>';
  * @constant
  */
 export const EMPTY = '<empty>';
+/**
+ *
+ * @type "<EPSILON"
+ * @constant
+ */
+export const EPSILON = '<EPSILON>';
+/**
+ *
+ * @type "<unknown input>"
+ * @constant
+ */
+export const UNKNOWN_INPUT = '<unknown input>';
+/**
+ *
+ * @param {string} literalName
+ * @returns {string}
+ */
+export const createMissing = literalName => create(`missing ${literalName}`);
+/**
+ *
+ * @param {string} type
+ * @returns {string}
+ */
+export const create = type => `<${type}>`;

@@ -16,12 +16,20 @@ if (isBrowser) {
 }
 /**
  *
+ * @type {number}
+ * @constant
+ * @private
+ */
+const INPUT_STREAM_MARK = -1;
+/**
+ *
  * @description
  * Decodes each string character to it's Unicode Code Point and returns an
  * Array of those code points, akin to a TypedArray.
  *
  * @param {string} string
  * @returns {string[]}
+ * @private
  */
 const decodeUnicodeCodePoints = string => {
 	const data = [];
@@ -29,7 +37,7 @@ const decodeUnicodeCodePoints = string => {
 	for (let i = 0; i < stringSize;) {
 		const codePoint = stream.strdata.codePointAt(i);
 		data.push(codePoint);
-		// if the code point exceed 0xFFFF it is represented by two 16-bit
+		// if the code point exceeds 0xFFFF it is represented by two 16-bit
 		// "surrogate pair" strings (32-bits) (V8 will alloc two strings that
 		// represent the code point (hence "surrogate pair")). This is why we
 		// must increment by two in that case.
@@ -47,6 +55,7 @@ const decodeUnicodeCodePoints = string => {
  *
  * @param {string} string
  * @returns {string[]}
+ * @private
  */
 const decodeCharacterCodes = string => {
 	const data = [];
@@ -64,6 +73,8 @@ const decodeCharacterCodes = string => {
  * If decodeToUnicodeCodePoints is true, the input string is decoded to a
  * series of Unicode code points, otherwise it is decoded to a series of
  * 16-bit UTF-16 code units.
+ *
+ * @class InputStream
  *
  */
 class InputStream {
@@ -137,11 +148,20 @@ class InputStream {
 		}
 		return this.data[pos];
 	}
+	/**
+	 *
+	 * @param {number} offset
+	 * @returns {string|number|Token.EOF}
+	 */
 	LT(offset) {
 		return this.LA(offset);
 	}
+	/**
+	 *
+	 * @returns {INPUT_STREAM_MARK}
+	 */
 	mark() {
-		return -1;
+		return INPUT_STREAM_MARK;
 	}
 	release() {}
 	/**
@@ -194,6 +214,10 @@ class InputStream {
 		// should this be encoding characters codes from this.data instead?
 		return this.strdata.slice(start,  stop + 1);
 	}
+	/**
+	 *
+	 * @returns {string}
+	 */
 	toString() {
 		return this.strdata;
 	}

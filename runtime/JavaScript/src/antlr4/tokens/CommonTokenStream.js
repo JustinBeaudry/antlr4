@@ -32,13 +32,12 @@ class CommonTokenStream extends BufferedTokenStream {
 	/**
 	 *
 	 * @param {Lexer} lexer
-	 * @param {string} [channel=Token.DEFAULT_CHANNEL]
+	 * @param {number} [channel=Token.DEFAULT_CHANNEL]
 	 * @returns {CommonTokenStream}
 	 */
 	constructor(lexer, channel=Token.DEFAULT_CHANNEL) {
 		super(lexer);
 		this.channel = channel;
-		return this;
 	}
 	/**
 	 *

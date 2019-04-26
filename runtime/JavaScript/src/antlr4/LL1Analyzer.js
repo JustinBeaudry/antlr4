@@ -1,94 +1,95 @@
-//
-/* Copyright (c) 2012-2017 The ANTLR Project. All rights reserved.
+/**
+ * @copyright
+ * Copyright (c) 2012-2017 The ANTLR Project. All rights reserved.
  * Use of this file is governed by the BSD 3-clause license that
  * can be found in the LICENSE.txt file in the project root.
+ * @license BSD-3-Clause
  */
-///
+import {Set, BitSet} from './Utils';
+import {Token} from './tokens/Token';
+import {Interval, IntervalSet} from './IntervalSet';
+import {ATNConfig} from './atn/ATNConfig';
+import {RuleStopState} from './atn/ATNState';
+import {RuleTransition, NotSetTransition, WildcardTransition, AbstractPredicateTransition} from './atn/Transition';
+import {
+	predictionContextFromRuleContext,
+	PredictionContext,
+	SingletonPredictionContext
+} from './PredictionContext';
 
-var Set = require('./Utils').Set;
-var BitSet = require('./Utils').BitSet;
-var Token = require('./tokens/Token').Token;
-var ATNConfig = require('./atn/ATNConfig').ATNConfig;
-var Interval = require('./IntervalSet').Interval;
-var IntervalSet = require('./IntervalSet').IntervalSet;
-var RuleStopState = require('./atn/ATNState').RuleStopState;
-var RuleTransition = require('./atn/Transition').RuleTransition;
-var NotSetTransition = require('./atn/Transition').NotSetTransition;
-var WildcardTransition = require('./atn/Transition').WildcardTransition;
-var AbstractPredicateTransition = require('./atn/Transition').AbstractPredicateTransition;
-
-var pc = require('./PredictionContext');
-var predictionContextFromRuleContext = pc.predictionContextFromRuleContext;
-var PredictionContext = pc.PredictionContext;
-var SingletonPredictionContext = pc.SingletonPredictionContext;
-
-function LL1Analyzer (atn) {
-    this.atn = atn;
+class LL1Analyzer {
+	constructor(atn) {
+		this.atn = atn;
+	}
+	//* Special value added to the lookahead sets to indicate that we hit
+	//  a predicate during analysis if {@code seeThruPreds==false}.
+	static get HIT_PRED() {
+		return Token.INVALID_TYPE;
+	}
+	//*
+	// Calculates the SLL(1) expected lookahead set for each outgoing transition
+	// of an {@link ATNState}. The returned array has one element for each
+	// outgoing transition in {@code s}. If the closure from transition
+	// <em>i</em> leads to a semantic predicate before matching a symbol, the
+	// element at index <em>i</em> of the result will be {@code null}.
+	//
+	// @param s the ATN state
+	// @return the expected symbols for each outgoing transition of {@code s}.
+	getDecisionLookahead(s) {
+		if (s == null) {
+			return null;
+		}
+		const count = s.transitions.length;
+		const look = [];
+		for (let alt = 0; alt < count; alt++) {
+			look[alt] = new IntervalSet();
+			const lookBusy = new Set();
+			const seeThruPreds = false; // fail to get lookahead upon pred
+			this._LOOK(
+				s.transition[alt].target,
+				null,
+				PredictionContext.EMPTY,
+				look[alt],
+				lookBusy,
+				new BitSet(),
+				seeThruPreds,
+				false
+			);
+			// Wipe out lookahead for this alternative if we found nothing
+			// or we had a predicate when we !seeThruPreds
+			if (look[alt].length === 0 || look[alt].contains(LL1Analyzer.HIT_PRED)) {
+				look[alt] = null;
+			}
+		}
+		return look;
+	}
+	//*
+	// Compute set of tokens that can follow {@code s} in the ATN in the
+	// specified {@code ctx}.
+	//
+	// <p>If {@code ctx} is {@code null} and the end of the rule containing
+	// {@code s} is reached, {@link Token//EPSILON} is added to the result set.
+	// If {@code ctx} is not {@code null} and the end of the outermost rule is
+	// reached, {@link Token//EOF} is added to the result set.</p>
+	//
+	// @param s the ATN state
+	// @param stopState the ATN state to stop at. This can be a
+	// {@link BlockEndState} to detect epsilon paths through a closure.
+	// @param ctx the complete parser context, or {@code null} if the context
+	// should be ignored
+	//
+	// @return The set of tokens that can follow {@code s} in the ATN in the
+	// specified {@code ctx}.
+	///
+	LOOK(s, stopState, ctx=null) {
+		const r = new IntervalSet();
+		const seeThruPreds = true; // ignore preds; get all lookahead
+		const lookContext = ctx == null ? null : predictionContextFromRuleContext(s.atn, ctx);
+		this._LOOK(s, stopState, lookContext, r,  new Set(), new BitSet(), seeThruPreds, true);
+		return r;
+	}
 }
 
-//* Special value added to the lookahead sets to indicate that we hit
-//  a predicate during analysis if {@code seeThruPreds==false}.
-///
-LL1Analyzer.HIT_PRED = Token.INVALID_TYPE;
-
-
-//*
-// Calculates the SLL(1) expected lookahead set for each outgoing transition
-// of an {@link ATNState}. The returned array has one element for each
-// outgoing transition in {@code s}. If the closure from transition
-// <em>i</em> leads to a semantic predicate before matching a symbol, the
-// element at index <em>i</em> of the result will be {@code null}.
-//
-// @param s the ATN state
-// @return the expected symbols for each outgoing transition of {@code s}.
-///
-LL1Analyzer.prototype.getDecisionLookahead = function(s) {
-    if (s === null) {
-        return null;
-    }
-    var count = s.transitions.length;
-    var look = [];
-    for(var alt=0; alt< count; alt++) {
-        look[alt] = new IntervalSet();
-        var lookBusy = new Set();
-        var seeThruPreds = false; // fail to get lookahead upon pred
-        this._LOOK(s.transition(alt).target, null, PredictionContext.EMPTY,
-              look[alt], lookBusy, new BitSet(), seeThruPreds, false);
-        // Wipe out lookahead for this alternative if we found nothing
-        // or we had a predicate when we !seeThruPreds
-        if (look[alt].length===0 || look[alt].contains(LL1Analyzer.HIT_PRED)) {
-            look[alt] = null;
-        }
-    }
-    return look;
-};
-
-//*
-// Compute set of tokens that can follow {@code s} in the ATN in the
-// specified {@code ctx}.
-//
-// <p>If {@code ctx} is {@code null} and the end of the rule containing
-// {@code s} is reached, {@link Token//EPSILON} is added to the result set.
-// If {@code ctx} is not {@code null} and the end of the outermost rule is
-// reached, {@link Token//EOF} is added to the result set.</p>
-//
-// @param s the ATN state
-// @param stopState the ATN state to stop at. This can be a
-// {@link BlockEndState} to detect epsilon paths through a closure.
-// @param ctx the complete parser context, or {@code null} if the context
-// should be ignored
-//
-// @return The set of tokens that can follow {@code s} in the ATN in the
-// specified {@code ctx}.
-///
-LL1Analyzer.prototype.LOOK = function(s, stopState, ctx) {
-    var r = new IntervalSet();
-    var seeThruPreds = true; // ignore preds; get all lookahead
-	ctx = ctx || null;
-    var lookContext = ctx!==null ? predictionContextFromRuleContext(s.atn, ctx) : null;
-    this._LOOK(s, stopState, lookContext, r, new Set(), new BitSet(), seeThruPreds, true);
-    return r;
-};
 
 //*
 // Compute set of tokens that can follow {@code s} in the ATN in the

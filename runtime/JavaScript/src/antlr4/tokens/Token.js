@@ -5,19 +5,63 @@
  * can be found in the LICENSE.txt file in the project root.
  */
 import {NO_TEXT, EOF} from './constants';
+import {escapeWhitespace} from '../Utils';
+/**
+ *
+ * @type {number}
+ * @constant
+ * @private
+ */
+const INVALID_TYPE = 0;
+/**
+ *
+ * @type {number}
+ * @constant
+ * @private
+ */
+const EPSILON = -2;
+/**
+ *
+ * @type {number}
+ * @constant
+ * @private
+ */
+const MIN_USER_TOKEN_TYPE = 1;
+/**
+ *
+ * @type {number}
+ * @constant
+ * @private
+ */
+const EOF = -1;
+/**
+ *
+ * @type {number}
+ * @constant
+ * @private
+ */
+const DEFAULT_CHANNEL = 0;
+/**
+ *
+ * @type {number}
+ * @constant
+ * @private
+ */
+const HIDDEN_CHANNEL = 1;
 /**
  *
  * @property {array} source
- * @property {string} type - token type.
- * @property {string} channel - the parser ignores everything not on
- * DEFAULT_CHANNEL.
+ * @property {number} type - token type.
+ * @property {number} channel - the parser ignores everything not on
+ * {@link Token#DEFAULT_CHANNEL}.
  * @property {?number} start - optional; return -1 if not implemented.
  * @property {?number} stop - optional; return -1 if not implemented.
  * @property {number} tokenIndex - from 0..n-1 of the token object in the
  * input stream.
  * @property {number} line - 1..n of the 1st character
  * @property {number} column - beginning of the line in which it occurs, 0..n-1
- * @property {string} _text - text of the token
+ * @property {string} text - text of the token
+ * @class
  *
  */
 class Token {
@@ -54,15 +98,16 @@ class Token {
 		this.line = line;
 		this.column = column;
 		this._text = text;
-		this[Symbol.toStringTag] = 'Token';
-		return this;
+		if (Symbol && Symtol.toStringTag) {
+			this[Symbol.toStringTag] = 'Token';
+		}
 	}
 	/**
 	 *
 	 * @returns 0
 	 */
 	static get INVALID_TYPE() {
-		return 0;
+		return INVALID_TYPE;
 	}
 	/**
 	 *
@@ -73,21 +118,21 @@ class Token {
 	 * @returns -2
 	 */
 	static get EPSILON() {
-		return -2;
+		return EPSILON;
 	}
 	/**
 	 *
 	 * @returns 1
 	 */
 	static get MIN_USER_TOKEN_TYPE() {
-		return 1;
+		return MIN_USER_TOKEN_TYPE;
 	}
 	/**
 	 *
 	 * @returns -1
 	 */
 	static get EOF() {
-		return -1;
+		return EOF;
 	}
 	/**
 	 *
@@ -99,7 +144,7 @@ class Token {
 	 * @returns 0
 	 */
 	static get DEFAULT_CHANNEL() {
-		return 0;
+		return DEFAULT_CHANNEL;
 	}
 	/**
 	 *
@@ -110,7 +155,7 @@ class Token {
 	 * @returns 1
 	 */
 	static get HIDDEN_CHANNEL() {
-		return 1;
+		return HIDDEN_CHANNEL;
 	}
 	get text() {
 		return this._text;
@@ -124,16 +169,48 @@ class Token {
 	getInputStream() {
 		return this.source[1];
 	}
+	/**
+	 *
+	 * @description
+	 * When this object is serialized e.g., @{code JSON.stringify} this method
+	 * is called implicitly, and it's return value is used for serialization.
+	 *
+	 * @returns {{
+	 *   stop: Token.stop,
+	 *   line: Token.line,
+	 *   channel: Token.channel,
+	 *   start: Token.start,
+	 *   column: Token.column,
+	 *   tokenIndex: Token.tokenIndex,
+	 *   text: Token.text,
+	 *   type: Token.type
+	 * }}
+	 * @private
+	 */
+	toJSON() {
+		const { type, channel, start, stop, tokenIndex, line, column, text } = this;
+		return {
+			type,
+			channel,
+			start,
+			stop,
+			tokenIndex,
+			line,
+			column,
+			text
+		};
+	}
 }
 
 class CommonToken extends Token {
 	/**
 	 *
 	 * @param {array} source
-	 * @param {string} type
-	 * @param {string} channel
+	 * @param {number} type
+	 * @param {number} channel
 	 * @param {number} start
 	 * @param {number} stop
+	 * @constructor
 	 */
 	constructor(
 		source=CommonToken.EMPTY_SOURCE,
@@ -155,10 +232,24 @@ class CommonToken extends Token {
 			start,
 			stop,
 			-1, // tokenIndex
+			line,
+			column
 		);
-		this[Symbol.toStringTag] = 'CommonToken';
-		return this;
+		if (Symbol && Symbol.toStringTag) {
+			this[Symbol.toStringTag] = 'CommonToken';
+		}
 	}
+	/**
+	 *
+	 * @param {object} obj
+	 * @param {array} obj.source
+	 * @param {number} obj.type
+	 * @param {number} obj.channel
+	 * @param {number} obj.start
+	 * @param {number} obj.stop
+	 * @returns {CommonToken}
+	 * @constructor
+	 */
 	static FromObject({
 		source,
 		type,
@@ -222,10 +313,7 @@ class CommonToken extends Token {
 			text = NO_TEXT;
 		} else {
 			// escape newline, carriage return, and tab
-			text = text
-				.replace(/\n/g, '\\n')
-				.replace(/\r/g, '\\r')
-				.replace(/\t/g, '\\t');
+			text = escapeWhitespace(text);
 		}
 		const {tokenIndex, start, stop, type, channel, line, column} = this;
 		let channelText = '';

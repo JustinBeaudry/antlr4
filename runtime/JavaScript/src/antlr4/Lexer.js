@@ -10,13 +10,46 @@ import {EOF} from './tokens/constants';
 import CommonTokenFactory from './tokens/CommonTokenFactory';
 import {Recognizer} from './Recognizer';
 import {RecognitionException, LexerNoViableAltException} from './error/Errors';
-
+/**
+ *
+ * @type {number}
+ * @constant
+ * @private
+ */
 const DEFAULT_MODE = 0;
+/**
+ *
+ * @type {number}
+ * @constant
+ * @private
+ */
 const MORE = -2;
+/**
+ *
+ * @type {number}
+ * @constant
+ * @private
+ */
 const SKIP = -3;
+/**
+ *
+ * @type {number}
+ * @constant
+ * @private
+ */
 const MIN_CHAR_VALUE = 0x0000;
+/**
+ *
+ * @type {number}
+ * @constant
+ * @private
+ */
 const MAX_CHAR_VALUE = 0x10FFFF;
-
+/**
+ *
+ * @class TokenSource
+ * @private
+ */
 class TokenSource {}
 /**
  *
@@ -54,6 +87,8 @@ class TokenSource {}
  * override what is in the input char buffer. Use setText() or can set this
  * instance var.
  *
+ * @class Lexer
+ * @extends TokenSource
  *
  */
 class Lexer extends TokenSource {

@@ -10,16 +10,19 @@ import Lexer from '../Lexer';
 import {Interval} from '../IntervalSet';
 /**
  *
+ * @type {number}
+ * @constant
+ * @private
+ */
+const DEFAULT_MARK = 0;
+/**
+ *
  * @description
  * This class is just keep meaningful parameter type to Parser
  *
  * @private
  */
-class TokenStream {
-	constructor() {
-		return this;
-	}
-}
+class TokenStream {}
 /**
  *
  * @description
@@ -28,10 +31,10 @@ class TokenStream {
  * token by index.
  *
  * <p>
- *   This token stream ignore the value of {@link Token//getChannel}. If your
+ *   This token stream ignore the value of {@link Token#channel}. If your
  *   parser requires the token stream, filter tokens to only those on a
- *   particular channel, such as {@link Token//DEFAULT_CHANNEL} or
- *   {@link Token//HIDDEN_CHANNEL}, use a filtering token stream such as
+ *   particular channel, such as {@link Token#DEFAULT_CHANNEL} or
+ *   {@link Token#HIDDEN_CHANNEL}, use a filtering token stream such as
  *   {@link CommonTokenStream}.
  * </p>
  *
@@ -49,17 +52,20 @@ class TokenStream {
  * Methods.</p>
  *
  * @property {boolean} [fetchedEOF=false] - Indicates whether the
- * {@link Token//EOF} token has been fetched from {@link //tokenSource} and
- * added to {@link //tokens}. This field improves performance for the
- * following cases:
+ * {@link Token#EOF} token has been fetched from
+ * {@link BufferedTokenStream#tokenSource} and added to
+ * {@link BufferedTokenStream#tokens}. This field improves performance for
+ * the following cases:
  * <ul>
- *   <li>{@link //consume}: The lookahead check in {@link //consume} to
- *        prevent consuming the EOF symbol is optimized by checking the values of
- *        {@link //fetchedEOF} and {@link //p} instead of calling
- *        {@link//LA}.
+ *   <li>{@link BufferedTokenStream#consume}: The lookahead check in
+ *        {@link BufferedTokenStream#consume} to prevent consuming the EOF
+ *        symbol is optimized by checking the values of
+ *        {@link BufferedTokenStream#fetchedEOF} and {@link //p} instead of
+ *        calling {@link BufferedTokenStream#LA}.
  *   </li>
- *   <li>{@link //fetch}: The check to prevent adding multiple EOF symbols
- *        into {@link //tokens} is trivial with this field.
+ *   <li>{@link BufferedTokenStream#fetch}: The check to prevent adding
+ *        multiple EOF symbols into {@link BufferedTokenStream#tokens} is trivial
+ *        with this field.
  *   </li>
  * <ul>
  */
@@ -76,15 +82,16 @@ class BufferedTokenStream extends TokenStream {
 		this.tokens = [];
 		this.index = -1;
 		this.fetchedEOF = false;
-		this[Symbol.toStringTag] = 'BufferedTokenStream';
-		return this;
+		if (Symbol && Symbol.toStringTag) {
+			this[Symbol.toStringTag] = 'BufferedTokenStream';
+		}
 	}
 	/**
 	 *
 	 * @returns {number}
 	 */
 	mark() {
-		return 0;
+		return DEFAULT_MARK;
 	}
 	/**
 	 *
@@ -119,6 +126,14 @@ class BufferedTokenStream extends TokenStream {
 		this.lazyInit();
 		return this.tokens[index];
 	}
+	/**
+	 *
+	 * @description
+	 * Loops through tokens until EOF
+	 *
+	 * @throws {Error}
+	 * @void
+	 */
 	consume() {
 		let skipEOFCheck = false;
 		if (this.index >= 0) {
@@ -136,16 +151,18 @@ class BufferedTokenStream extends TokenStream {
 	}
 	/**
 	 *
+	 * @description
 	 * Make sure {@code index} in tokens has a token. Returns {@code true} if a token is located at index
 	 * {@code index}, otherwise returns {@code false}.
+	 *
+	 * @todo this is not a "pure" function in the sense that calling this
+	 * function according to its description has side effects.
+	 * Consider refactoring to be atomic.
 	 *
 	 * @param {number} index
 	 * @returns {boolean}
 	 */
 	sync(index) {
-		// @NOTE: this is not a "pure" function in the sense that calling this
-		//        function according to its description has side effects.
-		//        Consider refactoring to be atomic.
 		const elementsNeeded = index - this.tokens.length + 1;
 		if (elementsNeeded > 0) {
 			return this.fetch(elementsNeeded) >= elementsNeeded;
@@ -178,11 +195,10 @@ class BufferedTokenStream extends TokenStream {
 	 *
 	 * @param {number} start
 	 * @param {number} stopElement
-	 * @param types
+	 * @param {Set|BitSet} types
 	 * @returns {null|Array}
 	 */
 	getTokens(start, stop, types) {
-		// coerce using == so this matches undefined or null
 		if (types == null) {
 			types = null;
 		}
@@ -205,15 +221,30 @@ class BufferedTokenStream extends TokenStream {
 		}
 		return subset;
 	}
-	LA(i) {
-		return this.LT(i).type;
+	/**
+	 *
+	 * @param {number} index
+	 * @returns {number}
+	 */
+	LA(index) {
+		return this.LT(index).type;
 	}
+	/**
+	 *
+	 * @param {number} k
+	 * @returns {null|Token}
+	 */
 	LB(k) {
 		if (this.index - k < 0) {
 			return null;
 		}
 		return this.tokens[this.index - k];
 	}
+	/**
+	 *
+	 * @param {number} k
+	 * @returns {null|Token}
+	 */
 	LT(k) {
 		this.lazyInit();
 		if (k === 0) {
@@ -230,6 +261,7 @@ class BufferedTokenStream extends TokenStream {
 	}
 	/**
 	 *
+	 * @description
 	 * Allows derived classes to modify the behavior of operations which change
 	 * the current stream position by adjusting the target token index of a seek
 	 * operation. The default implementation simply returns the passed in {@code index}.
@@ -245,20 +277,38 @@ class BufferedTokenStream extends TokenStream {
 	adjustSeekIndex(index) {
 		return index;
 	}
+	/**
+	 *
+	 * @description
+	 * If {@link BufferedTokenStream#index} has not been set ({@code -1}) calls
+	 * {@link BufferedTokenStream#setup}. Otherwise is a noop.
+	 *
+	 * @void
+	 */
 	lazyInit() {
 		if (this.index === -1) {
 			this.setup();
 		}
 	}
+	/**
+	 *
+	 * @description
+	 * Calls {@link BufferedTokenStream#sync} with a value of {@code 0}, and sets
+	 * the {@link BufferedTokenStream#index} to the return value of
+	 * {@link BufferedTokenStream#adjustSeekIndex}.
+	 *
+	 * @void
+	 */
 	setup() {
 		this.sync(0);
 		this.index = this.adjustSeekIndex(0);
 	}
 	/**
 	 *
+	 * @description
 	 * Reset this token stream by setting it's token source.
 	 *
-	 * @param tokenSource
+	 * @param {Lexer} tokenSource - Lexer
 	 */
 	setTokenSource(tokenSource) {
 		this.tokenSource = tokenSource;
@@ -268,6 +318,7 @@ class BufferedTokenStream extends TokenStream {
 	}
 	/**
 	 *
+	 * @description
 	 * Given a starting {@code index} return the index of the next token on channel.
 	 * Return {@code index} if {@code tokens[index]} is on channel. Return {@code -1} if there
 	 * are no tokens on channel between {@code index} and {@code EOF}.
@@ -294,13 +345,14 @@ class BufferedTokenStream extends TokenStream {
 	}
 	/**
 	 *
+	 * @description
 	 * Given a starting {@code index} return the {@code index} of the previous token on {@code channel}.
 	 * Return {@code index} if {@code tokens[index]} is on {@code channel}. Return -1 if there
 	 * are no tokens on {@code channel} between {@code index} and {@code 0};
 	 *
 	 * @param {number} index
 	 * @param {string} channel
-	 * @returns {*}
+	 * @returns {number}
 	 */
 	previousTokenOnChannel(index, channel) {
 		while(index >= 0 && this.tokens[index].channel !== channel) {
@@ -332,9 +384,10 @@ class BufferedTokenStream extends TokenStream {
 	}
 	/**
 	 *
+	 * @description
 	 * Collect all tokens on specified channel to the left of the current token
-	 * up until we see a token on DEFAULT_TOKEN_CHANNEL. If channel is -1 find any
-	 * non-default token.
+	 * up until we see a token on {@link Lexer#DEFAULT_TOKEN_CHANNEL}. If channel
+	 * is {@code -1} find any non-default tokens.
 	 *
 	 * @param {index} tokenIndex
 	 * @param {string} channel
@@ -385,6 +438,7 @@ class BufferedTokenStream extends TokenStream {
 	}
 	/**
 	 *
+	 * @description
 	 * Get the text of all tokens in this buffer.
 	 *
 	 * @param {number} interval
@@ -422,7 +476,10 @@ class BufferedTokenStream extends TokenStream {
 	}
 	/**
 	 *
-	 * Get all tokens from lexer until EOF
+	 * @description
+	 * Get all tokens from lexer until {@link Token#EOF}.
+	 *
+	 * @void
 	 */
 	fill() {
 		const fillValue = 1000;
